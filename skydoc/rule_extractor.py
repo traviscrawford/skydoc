@@ -98,12 +98,16 @@ class RuleDocExtractor(object):
     global_stubs = create_stubs(SKYLARK_STUBS, load_symbols)
     exec(compiled) in global_stubs, skylark_locals
 
+    docs = skylark_locals["_docs"] if "_docs" in skylark_locals else {}
+
     for name, obj in skylark_locals.iteritems():
       if (isinstance(obj, skylark_globals.RuleDescriptor) and
           not name.startswith('_')):
         obj.attrs['name'] = attr.AttrDescriptor(
             type=build_pb2.Attribute.UNKNOWN, mandatory=True, name='name')
         self.__extracted_rules[name] = obj
+        if name in docs:
+          self._add_rule_doc(name, docs[name])
 
   def _add_rule_doc(self, name, doc):
     """Parses the attribute documentation from the docstring.
@@ -148,7 +152,7 @@ class RuleDocExtractor(object):
       tree = ast.parse(open(bzl_file).read(), bzl_file)
       key = None
       for node in ast.iter_child_nodes(tree):
-        if isinstance(node, ast.Assign):
+        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
           name = node.targets[0].id
           if not name.startswith("_"):
             key = name
